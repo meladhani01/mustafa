@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>توزيع اعداد الواحدات الكهروضوئية في مركز الخارجة 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 600px; z-index: 1; }
+        /* Custom map marker styles */
+        .custom-div-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        .marker-label {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 4px;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .chart-container {
+            display: flex;
+            align-items: flex-end;
+            background: rgba(255,255,255,0.6);
+            border: 1px solid #999;
+            padding: 2px;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <header class="text-center mb-8 border-b pb-4">
+            <h1 class="text-3xl font-bold text-gray-800">توزيع اعداد الواحدات الكهروضوئية وقدراتها المركبة</h1>
+            <h2 class="text-xl text-gray-600 mt-2">في مركز الخارجة 2026</h2>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            
+            <div class="bg-gray-50 p-4 rounded-lg border lg:col-span-1">
+                <h3 class="text-lg font-bold mb-4 border-b pb-2">مفتاح الخريطة</h3>
+                
+                <div class="mb-4 text-sm">
+                    <p class="font-semibold mb-2">المتوسط العام:</p>
+                    <p class="text-blue-700 font-bold bg-blue-100 p-2 rounded inline-block">2438.7 ك.و</p>
+                </div>
+
+                <div class="space-y-3 mt-6">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-red-600 mr-3 ml-2 border border-gray-300"></div>
+                        <span class="text-sm font-medium">جملة القدرة الاسمية</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-yellow-500 mr-3 ml-2 border border-gray-300"></div>
+                        <span class="text-sm font-medium">جملة عدد الوحدات</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 mt-6 border-t pt-4">
+                    <p class="font-semibold text-sm">التصنيف الجغرافي بالجدول:</p>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-orange-100 border border-orange-300 mr-2 ml-2"></div>
+                        <span class="text-xs">تزيد عن المتوسط</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-yellow-50 border border-yellow-200 mr-2 ml-2"></div>
+                        <span class="text-xs">تقل عن المتوسط</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 bg-white p-2 rounded-lg border">
+                <div id="map" class="rounded border"></div>
+                <p class="text-xs text-gray-500 mt-2 text-center">اضغط على الأعمدة في الخريطة لرؤية التفاصيل الدقيقة.</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <div class="bg-white p-4 rounded-lg border">
+                <h3 class="text-lg font-bold mb-4 text-center">مقارنة إجمالية حسب المنطقة</h3>
+                <canvas id="solarChart"></canvas>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border">
+                <table class="w-full text-sm text-right text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">المنطقة</th>
+                            <th scope="col" class="px-6 py-3">القدرة (ك.و)</th>
+                            <th scope="col" class="px-6 py-3">الوحدات</th>
+                            <th scope="col" class="px-6 py-3">الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data derived from the PDF map context
+        const regionsData = [
+            { name: 'النقب', lat: 25.66, lng: 30.58, capacity: 4200, units: 190, status: 'تزيد' },
+            { name: 'المنيرة', lat: 25.58, lng: 30.58, capacity: 3800, units: 170, status: 'تزيد' },
+            { name: 'القطارة', lat: 25.50, lng: 30.58, capacity: 800, units: 40, status: 'تقل' },
+            { name: 'قرى الشركة', lat: 25.46, lng: 30.58, capacity: 1500, units: 90, status: 'تقل' },
+            { name: 'مدينة الخارجة', lat: 25.41, lng: 30.55, capacity: 2600, units: 130, status: 'تزيد' },
+            { name: 'جناح', lat: 25.33, lng: 30.56, capacity: 600, units: 30, status: 'تقل' },
+            { name: 'ناصر الثورة', lat: 25.25, lng: 30.53, capacity: 400, units: 20, status: 'تقل' },
+            { name: 'شرق بولاق', lat: 25.25, lng: 30.59, capacity: 700, units: 35, status: 'تقل' },
+            { name: 'بولاق', lat: 25.16, lng: 30.56, capacity: 1200, units: 60, status: 'تقل' },
+            { name: 'صنعاء', lat: 25.08, lng: 30.56, capacity: 500, units: 25, status: 'تقل' },
+            { name: 'فلسطين', lat: 25.00, lng: 30.56, capacity: 600, units: 30, status: 'تقل' }
+        ];
+
+        /* --- 1. Initialize Leaflet Map --- */
+        // Centered roughly on Kharga Oasis
+        const map = L.map('map').setView([25.35, 30.56], 10);
+
+        // Add a clean satellite/terrain base map (Esri World Imagery)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+
+        // Add an overlay to lighten the satellite map so our charts pop out (similar to PDF)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+            opacity: 0.6
+        }).addTo(map);
+
+        /* --- 2. Add Custom Bar Chart Markers --- */
+        const maxCapacity = 4200; // For scaling the red bar
+        const maxUnits = 190;     // For scaling the yellow bar
+        const maxBarHeight = 40;  // Max pixels for the bar height
+
+        regionsData.forEach(region => {
+            const capHeight = Math.max((region.capacity / maxCapacity) * maxBarHeight, 5); // min height 5px
+            const unitHeight = Math.max((region.units / maxUnits) * maxBarHeight, 5);
+
+            // Create the HTML for the miniature map chart
+            const iconHtml = `
+                <div class="custom-div-icon" style="width: 50px; height: 80px;">
+                    <div class="chart-container">
+                        <div style="width: 8px; height: ${capHeight}px; background-color: #dc2626; margin-left: 2px;"></div>
+                        <div style="width: 8px; height: ${unitHeight}px; background-color: #eab308;"></div>
+                    </div>
+                    <div class="marker-label">${region.name}</div>
+                </div>
+            `;
+
+            const customIcon = L.divIcon({
+                html: iconHtml,
+                className: '', // Clear default leaflet styles
+                iconSize: [50, 80],
+                iconAnchor: [25, 80] // Anchor at the bottom center of the div
+            });
+
+            // Add marker to map with popup
+            L.marker([region.lat, region.lng], { icon: customIcon })
+                .addTo(map)
+                .bindPopup(`
+                    <div class="text-right p-2" dir="rtl">
+                        <strong class="block text-lg border-b pb-1 mb-2">${region.name}</strong>
+                        <p class="text-sm"><span class="text-red-600 font-bold inline-block w-4">■</span> القدرة: <b>${region.capacity}</b> ك.و</p>
+                        <p class="text-sm"><span class="text-yellow-500 font-bold inline-block w-4">■</span> الوحدات: <b>${region.units}</b> وحدة</p>
+                    </div>
+                `);
+        });
+
+        /* --- 3. Populate Table --- */
+        const tbody = document.getElementById('tableBody');
+        regionsData.forEach(region => {
+            const rowColor = region.status === 'تزيد' ? 'bg-orange-50' : 'bg-yellow-50';
+            const statusText = region.status === 'تزيد' ? 'تزيد عن المتوسط' : 'تقل عن المتوسط';
+            const statusColor = region.status === 'تزيد' ? 'text-orange-600' : 'text-yellow-600';
+            
+            tbody.innerHTML += `
+                <tr class="${rowColor} border-b hover:bg-gray-100 transition">
+                    <td class="px-6 py-3 font-medium text-gray-900">${region.name}</td>
+                    <td class="px-6 py-3">${region.capacity}</td>
+                    <td class="px-6 py-3">${region.units}</td>
+                    <td class="px-6 py-3 ${statusColor} font-bold">${statusText}</td>
+                </tr>
+            `;
+        });
+
+        /* --- 4. Initialize Summary Chart --- */
+        const ctx = document.getElementById('solarChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: regionsData.map(r => r.name),
+                datasets: [
+                    {
+                        label: 'القدرة الاسمية (ك.و)',
+                        data: regionsData.map(r => r.capacity),
+                        backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'عدد الوحدات',
+                        data: regionsData.map(r => r.units),
+                        backgroundColor: 'rgba(234, 179, 8, 0.9)',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: {
+                        type: 'linear', position: 'right',
+                        title: { display: true, text: 'القدرة الاسمية' }
+                    },
+                    y1: {
+                        type: 'linear', position: 'left',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'عدد الوحدات' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
