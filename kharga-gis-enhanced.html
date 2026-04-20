@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>تقرير GIS التفاعلي | الخارجة الشمسية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;--primary:#3fb950;--gold:#d29922;
+  --blue:#58a6ff;--coral:#f85149;--teal:#56d364;
+  --font:'Tajawal',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.7;font-size:16px}
+
+/* ─ NAV ─ */
+nav{position:sticky;top:0;z-index:200;background:rgba(13,17,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1.5rem;padding:.75rem 2rem;flex-wrap:wrap}
+.nav-logo{display:flex;align-items:center;gap:.6rem;font-weight:700;font-size:1.1rem;color:var(--primary)}
+.nav-logo svg{width:28px;height:28px}
+.nav-links{display:flex;gap:.25rem;flex:1;flex-wrap:wrap}
+.nav-links a{color:var(--muted);padding:.4rem .8rem;border-radius:6px;font-size:.88rem;transition:color .2s,background .2s}
+.nav-links a:hover,.nav-links a.active{color:var(--text);background:var(--surface2)}
+.theme-btn{margin-right:auto;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:.4rem .8rem;border-radius:6px;cursor:pointer;font-size:.85rem}
+
+/* ─ HERO ─ */
+.hero{padding:3.5rem 2rem 2rem;max-width:1300px;margin:auto;display:grid;grid-template-columns:1.4fr 1fr;gap:2rem;align-items:start}
+.hero-tag{display:inline-flex;align-items:center;gap:.5rem;background:rgba(63,185,80,.12);color:var(--primary);border:1px solid rgba(63,185,80,.25);border-radius:999px;padding:.35rem .9rem;font-size:.8rem;font-weight:600;margin-bottom:1rem}
+h1{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:700;line-height:1.25;margin-bottom:.75rem}
+.lead{color:var(--muted);font-size:1rem;max-width:54ch;line-height:1.8}
+.hero-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-top:1.5rem}
+.kpi-mini{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center}
+.kpi-mini strong{display:block;font-size:1.9rem;font-weight:700;color:var(--primary);font-family:var(--mono)}
+.kpi-mini span{font-size:.78rem;color:var(--muted)}
+.hero-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+.hero-panel h2{font-size:1.1rem;margin-bottom:1rem;color:var(--text)}
+.hero-panel ul{list-style:none;display:grid;gap:.75rem}
+.hero-panel li{padding:.65rem 0;border-bottom:1px solid var(--border);font-size:.9rem;color:var(--muted)}
+.hero-panel li:last-child{border-bottom:0}
+.hero-panel li strong{color:var(--text)}
+
+/* ─ SECTION ─ */
+section{max-width:1300px;margin:0 auto;padding:1rem 2rem 2.5rem}
+.sec-head{margin-bottom:1.5rem}
+.sec-head h2{font-size:1.4rem;font-weight:700}
+.sec-head p{color:var(--muted);font-size:.9rem;margin-top:.4rem}
+
+/* ─ KPI STRIP ─ */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+.kpi-card .lbl{font-size:.78rem;color:var(--muted);margin-bottom:.4rem}
+.kpi-card .val{font-size:2rem;font-weight:700;color:var(--primary);font-family:var(--mono)}
+.kpi-card .note{font-size:.78rem;color:var(--muted);margin-top:.35rem}
+
+/* ─ CHARTS ─ */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+.chart-box h3{font-size:.95rem;font-weight:600;margin-bottom:1rem}
+.chart-box canvas{width:100%!important}
+
+/* ─ MAP SECTION ─ */
+.map-wrap{display:grid;grid-template-columns:1.6fr .9fr;gap:1rem}
+.map-container{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.map-controls{background:var(--surface2);border-bottom:1px solid var(--border);padding:.75rem 1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.map-controls label{font-size:.8rem;color:var(--muted);font-weight:600}
+#leaflet-map{height:460px;background:#1a1f2e}
+.map-legend{padding:1rem;display:flex;gap:1rem;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted)}
+.legend-dot{width:12px;height:12px;border-radius:50%}
+
+.layer-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+.layer-btn{background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:.35rem .7rem;border-radius:6px;cursor:pointer;font-size:.78rem;font-family:var(--font);transition:all .2s}
+.layer-btn.active{background:var(--primary);border-color:var(--primary);color:#0d1117;font-weight:600}
+
+/* ─ YEAR SLIDER ─ */
+.year-slider-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+.year-slider-wrap h3{font-size:.95rem;font-weight:600;margin-bottom:1rem}
+.slider-row{display:flex;align-items:center;gap.75rem;gap:1rem}
+.slider-row input[type=range]{flex:1;accent-color:var(--primary)}
+.year-display{font-family:var(--mono);font-size:1.5rem;font-weight:700;color:var(--primary);min-width:3ch}
+.year-stats{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem}
+.yr-stat{background:var(--surface2);border-radius:8px;padding:.65rem .85rem}
+.yr-stat .lbl{font-size:.72rem;color:var(--muted)}
+.yr-stat .val{font-size:1.3rem;font-weight:700;font-family:var(--mono)}
+.yr-stat.agri .val{color:var(--primary)}
+.yr-stat.desert .val{color:var(--gold)}
+.yr-stat.urban .val{color:var(--blue)}
+.yr-stat.area .val{color:var(--teal)}
+
+/* ─ COMPARISON ─ */
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}
+.compare-map{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.compare-header{background:var(--surface2);padding:.65rem 1rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border)}
+.compare-header label{font-size:.8rem;color:var(--muted);font-weight:600}
+.compare-header select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.25rem .5rem;border-radius:6px;font-size:.8rem;font-family:var(--font)}
+.compare-map-inner{height:320px}
+
+/* ─ FILTER BAR ─ */
+.filter-bar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+.filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:.45rem .85rem;border-radius:999px;cursor:pointer;font-size:.82rem;font-family:var(--font);transition:all .2s}
+.filter-btn.active{background:rgba(63,185,80,.15);border-color:var(--primary);color:var(--primary)}
+
+/* ─ TIMELINE ─ */
+.timeline{display:grid;gap:.75rem}
+.tl-item{background:var(--surface);border:1px solid var(--border);border-right:3px solid var(--primary);border-radius:12px;padding:1.1rem 1.25rem}
+.tl-item h3{font-size:.95rem;font-weight:600;margin-bottom:.4rem}
+.tl-item p{font-size:.85rem;color:var(--muted)}
+
+/* ─ INSIGHTS ─ */
+.insights-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.insight{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+.insight h3{font-size:.95rem;font-weight:600;margin-bottom:.5rem}
+.insight p{font-size:.85rem;color:var(--muted)}
+
+/* ─ TABLE ─ */
+.table-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;background:var(--surface);font-size:.88rem}
+th,td{padding:.85rem 1rem;text-align:right;border-bottom:1px solid var(--border)}
+th{background:var(--surface2);font-weight:600;color:var(--muted)}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+tbody tr:last-child td{border-bottom:0}
+.badge{display:inline-flex;padding:.2rem .6rem;border-radius:999px;font-size:.72rem;font-weight:600}
+.badge-up{background:rgba(63,185,80,.15);color:var(--primary)}
+.badge-stable{background:rgba(88,166,255,.15);color:var(--blue)}
+.badge-down{background:rgba(210,153,34,.15);color:var(--gold)}
+
+/* ─ FOOTER ─ */
+footer{max-width:1300px;margin:0 auto;padding:1rem 2rem 3rem}
+.footer-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem}
+.footer-card h2{font-size:1.1rem;margin-bottom:.75rem}
+.footer-card p{color:var(--muted);font-size:.9rem}
+
+/* ─ CHIP ─ */
+.chip{display:inline-flex;padding:.25rem .65rem;border-radius:999px;background:rgba(63,185,80,.12);color:var(--primary);font-size:.75rem;font-weight:600;border:1px solid rgba(63,185,80,.2)}
+
+/* ─ SPATIAL FILTER PANEL ─ */
+.spatial-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem}
+.spatial-panel h3{font-size:.95rem;font-weight:600;margin-bottom:1rem}
+.filter-group{margin-bottom:1rem}
+.filter-group label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:.35rem}
+.filter-group select,.filter-group input[type=range]{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.45rem .6rem;border-radius:8px;font-size:.82rem;font-family:var(--font)}
+.filter-group input[type=range]{accent-color:var(--primary)}
+.filter-val{font-family:var(--mono);font-size:.85rem;color:var(--primary)}
+.apply-btn{width:100%;background:var(--primary);color:#0d1117;border:0;padding:.7rem;border-radius:8px;font-weight:700;cursor:pointer;font-family:var(--font);font-size:.9rem;margin-top:.75rem}
+
+/* ─ MAP POPUP OVERRIDE ─ */
+.leaflet-popup-content-wrapper{background:var(--surface)!important;color:var(--text)!important;border:1px solid var(--border)!important;box-shadow:0 8px 24px rgba(0,0,0,.5)!important;border-radius:10px!important}
+.leaflet-popup-tip{background:var(--surface)!important}
+.leaflet-popup-content{color:var(--text)!important;font-family:var(--font)!important;font-size:13px!important}
+.leaflet-control-zoom a{background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important}
+
+@media(max-width:900px){
+  .hero,.charts-grid,.map-wrap,.insights-grid,.kpi-strip,.compare-wrap{grid-template-columns:1fr}
+  nav{padding:.6rem 1rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="16" cy="10" r="5"/>
+      <path d="M16 2v4M16 14v4M8 10h4M20 10h4"/>
+      <path d="M6 28h20M10 28V20l6-4 6 4v8M13 28v-5h6v5"/>
+    </svg>
+    الخارجة GIS
+  </div>
+  <div class="nav-links">
+    <a href="#overview" class="active">نظرة عامة</a>
+    <a href="#charts">التحليل</a>
+    <a href="#interactive-map">خرائط تفاعلية</a>
+    <a href="#comparison">مقارنة السنوات</a>
+    <a href="#timeline">المراحل</a>
+    <a href="#insights">الاستنتاجات</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="overview">
+  <div>
+    <div class="hero-tag">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zM7 11.5V7h2v4.5H7zM8 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
+      الطاقة الشمسية × الزراعة × الاستشعار عن بعد
+    </div>
+    <h1>تطور استخدامات الأراضي في مركز الخارجة<br/>2000 – 2025</h1>
+    <p class="lead">تحليل مكاني وزماني متكامل يربط إمكانات الطاقة الشمسية بالتوسع الزراعي عبر ست محطات رصد، مع خرائط GIS تفاعلية حقيقية وفلاتر مكانية مباشرة.</p>
+    <div class="hero-kpis">
+      <div class="kpi-mini"><strong id="c1">0</strong><span>فدان زراعي 2025</span></div>
+      <div class="kpi-mini"><strong id="c2">0</strong><span>% حصة الزراعة</span></div>
+      <div class="kpi-mini"><strong id="c3">0</strong><span>ساعة سطوع يومي</span></div>
+    </div>
+  </div>
+  <div class="hero-panel">
+    <h2>محاور التقرير</h2>
+    <ul>
+      <li><strong>المنطقة:</strong> مركز الخارجة، محافظة الوادي الجديد</li>
+      <li><strong>المنهج:</strong> GIS + Landsat 7/8 + Sentinel-2 + Google Earth Engine</li>
+      <li><strong>المؤشرات:</strong> استخدامات الأرض، NDVI، SAVI، الإشعاع الشمسي، ملوحة التربة، الكثبان</li>
+      <li><strong>الفترة الزمنية:</strong> 6 محطات رصد من 2000 حتى 2025</li>
+      <li><strong>المخرجات:</strong> خرائط تفاعلية، فلاتر مكانية، مقارنة مباشرة بين السنوات</li>
+    </ul>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<section>
+  <div class="kpi-strip">
+    <div class="kpi-card"><div class="lbl">نمو المساحة الزراعية</div><div class="val" id="kv1">0</div><div class="note">ألف فدان إضافية 2000→2025</div></div>
+    <div class="kpi-card"><div class="lbl">زيادة الحصة الزراعية</div><div class="val" id="kv2">0</div><div class="note">نقطة مئوية (5% → 18%)</div></div>
+    <div class="kpi-card"><div class="lbl">انكماش الصحراء</div><div class="val" id="kv3">0</div><div class="note">نقطة مئوية (94% → 80%)</div></div>
+    <div class="kpi-card"><div class="lbl">ذروة السطوع</div><div class="val" id="kv4">0</div><div class="note">ساعة/يوم في يونيو–يوليو</div></div>
+  </div>
+</section>
+
+<!-- CHARTS -->
+<section id="charts">
+  <div class="sec-head"><h2>التحليل الزمني والهيكلي</h2><p>تطور الزراعة، تغير استخدامات الأرض، والعلاقة مع إمكانات الطاقة الشمسية</p></div>
+  <div class="charts-grid">
+    <div class="chart-box">
+      <h3>تطور المساحة الزراعية (فدان)</h3>
+      <div style="position:relative;height:280px"><canvas id="agriChart" role="img" aria-label="خط يُظهر نمو المساحة الزراعية من 13,474 فدان عام 2000 إلى 48,506 فدان عام 2025">المساحة الزراعية: 2000: 13474، 2005: 16169، 2010: 18864، 2015: 32338، 2020: 40422، 2025: 48506</canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>تحول استخدامات الأرض (%)</h3>
+      <div style="position:relative;height:280px"><canvas id="landUseChart" role="img" aria-label="أعمدة مكدسة تُظهر نسب الزراعة والصحراء والعمران والمياه لكل سنة">تحول استخدامات الأرض من 2000 إلى 2025</canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>ساعات السطوع الشمسي الشهرية</h3>
+      <div style="position:relative;height:280px"><canvas id="sunChart" role="img" aria-label="منحنيات تقارن ساعات السطوع الشهرية بين الخارجة والمحافظة وجمهورية مصر">سطوع الشمس الشهري</canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>توزيع استخدامات الأراضي 2025</h3>
+      <div style="position:relative;height:280px"><canvas id="donutChart" role="img" aria-label="دائرة تُظهر توزيع استخدامات الأرض عام 2025: صحراء 80%، زراعة 18%، عمران 2%">2025: صحراء 80%، زراعة 18%، عمران 2%</canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- INTERACTIVE MAP -->
+<section id="interactive-map">
+  <div class="sec-head"><h2>خريطة GIS التفاعلية</h2><p>خريطة حقيقية قابلة للتكبير مع طبقات بيانات مكانية وفلاتر مباشرة</p></div>
+  <div class="map-wrap">
+    <div class="map-container">
+      <div class="map-controls">
+        <label>الطبقة:</label>
+        <div class="layer-btns">
+          <button class="layer-btn active" onclick="setLayer('satellite')">الأقمار الاصطناعية</button>
+          <button class="layer-btn" onclick="setLayer('topo')">طبوغرافية</button>
+          <button class="layer-btn" onclick="setLayer('osm')">OpenStreetMap</button>
+        </div>
+        <span style="margin-right:auto;font-size:.78rem;color:var(--muted)">الخارجة، الوادي الجديد ·  25.44°N 30.55°E</span>
+      </div>
+      <div id="leaflet-map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>مناطق زراعية</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>كثبان رملية</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>مياه جوفية</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div>وحدات شمسية</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>مناطق عمرانية</div>
+      </div>
+    </div>
+
+    <!-- SPATIAL FILTER + YEAR SLIDER -->
+    <div style="display:grid;gap:1rem">
+      <div class="year-slider-wrap">
+        <h3>استكشاف البيانات حسب السنة</h3>
+        <div class="slider-row">
+          <input type="range" min="0" max="5" value="5" id="yearSlider" oninput="updateYear(this.value)"/>
+          <div class="year-display" id="yearDisplay">2025</div>
+        </div>
+        <div class="year-stats">
+          <div class="yr-stat agri"><div class="lbl">الزراعة</div><div class="val" id="ys-agri">18%</div></div>
+          <div class="yr-stat desert"><div class="lbl">الصحراء</div><div class="val" id="ys-desert">80%</div></div>
+          <div class="yr-stat urban"><div class="lbl">العمران</div><div class="val" id="ys-urban">2%</div></div>
+          <div class="yr-stat area"><div class="lbl">المساحة (فدان)</div><div class="val" id="ys-area">48,506</div></div>
+        </div>
+      </div>
+
+      <div class="spatial-panel">
+        <h3>الفلاتر المكانية</h3>
+        <div class="filter-group">
+          <label>نوع الاستخدام</label>
+          <select id="useFilter" onchange="applyFilters()">
+            <option value="all">الكل</option>
+            <option value="agri">زراعة فقط</option>
+            <option value="solar">وحدات شمسية</option>
+            <option value="water">مصادر مياه</option>
+            <option value="urban">عمران</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>الإشعاع الشمسي — الحد الأدنى: <span class="filter-val" id="radVal">متوسط</span></label>
+          <input type="range" min="0" max="2" value="1" step="1" id="radFilter" oninput="updateRadVal(this.value);applyFilters()"/>
+        </div>
+        <div class="filter-group">
+          <label>الناحية</label>
+          <select id="areaFilter" onchange="applyFilters()">
+            <option value="all">كل النواحي</option>
+            <option value="north">الشمال (النقب، المنيرة)</option>
+            <option value="central">الوسط (مدينة الخارجة)</option>
+            <option value="south">الجنوب (بولاق، صنعاء، فلسطين)</option>
+          </select>
+        </div>
+        <button class="apply-btn" onclick="resetFilters()">إعادة تعيين الفلاتر</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- YEAR COMPARISON -->
+<section id="comparison">
+  <div class="sec-head"><h2>مقارنة مباشرة بين السنوات</h2><p>اختر سنتين واستكشف الفارق في التوزيع المكاني والنسب</p></div>
+  <div class="compare-wrap">
+    <div class="compare-map">
+      <div class="compare-header">
+        <label>السنة الأولى:</label>
+        <select id="yearA" onchange="updateCompare()">
+          <option value="0">2000</option>
+          <option value="1">2005</option>
+          <option value="2">2010</option>
+          <option value="3">2015</option>
+          <option value="4">2020</option>
+          <option value="5" selected>2025</option>
+        </select>
+      </div>
+      <div class="compare-map-inner" id="mapA"></div>
+    </div>
+    <div class="compare-map">
+      <div class="compare-header">
+        <label>السنة الثانية:</label>
+        <select id="yearB" onchange="updateCompare()">
+          <option value="0" selected>2000</option>
+          <option value="1">2005</option>
+          <option value="2">2010</option>
+          <option value="3">2015</option>
+          <option value="4">2020</option>
+          <option value="5">2025</option>
+        </select>
+      </div>
+      <div class="compare-map-inner" id="mapB"></div>
+    </div>
+  </div>
+  <!-- Diff chart -->
+  <div style="margin-top:1rem;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem">
+    <h3 style="font-size:.95rem;font-weight:600;margin-bottom:1rem">الفارق بين السنتين المختارتين</h3>
+    <div style="position:relative;height:200px"><canvas id="diffChart" role="img" aria-label="مخطط يُظهر الفارق في نسب استخدامات الأراضي بين السنتين المختارتين">مقارنة استخدامات الأرض</canvas></div>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section id="timeline">
+  <div class="sec-head"><h2>مراحل الدراسة والنتائج</h2><p>سرد منهجي يربط جمع البيانات بالتفسير والاستخلاص</p></div>
+  <div class="timeline">
+    <div class="tl-item"><h3>المرحلة الأولى · تحديد الإطار المكاني</h3><p>تحديد مركز الخارجة كحقل دراسة مع تجميع المرئيات الزمنية من Landsat 7/8 وSentinel-2 وبناء قاعدة بيانات مكانية موحدة في بيئة GIS.</p></div>
+    <div class="tl-item"><h3>المرحلة الثانية · بناء طبقات التحليل</h3><p>قراءة طبقات استخدامات الأرض، الإشعاع الشمسي، التربة، الملوحة، الغطاء النباتي، والكثبان مع دمج مؤشري NDVI وSAVI.</p></div>
+    <div class="tl-item"><h3>المرحلة الثالثة · التحليل الزمني 2000–2025</h3><p>كشف التسلسل عن ثبات نسبي حتى 2010، ثم طفرة واضحة بعد 2015 تنسجم مع اتساع حلول الطاقة الشمسية في تشغيل آبار الري.</p></div>
+    <div class="tl-item"><h3>المرحلة الرابعة · تفسير الأنماط</h3><p>التوسع لم يكن عشوائياً؛ بل تحرك نحو المواضع الأعلى ملاءمة حيث سطوع مرتفع وقيود بيئية أقل، بينما تقل الكفاءة عند الملوحة أو زحف الرمال.</p></div>
+    <div class="tl-item"><h3>المرحلة الخامسة · النتيجة التطبيقية</h3><p>الطاقة الشمسية ليست مجرد مصدر بديل للكهرباء؛ بل أداة إعادة تشكيل مكانية توسّع دائرة الأراضي القابلة للاستغلال في المناطق الصحراوية.</p></div>
+  </div>
+</section>
+
+<!-- DATA TABLE -->
+<section>
+  <div class="sec-head"><h2>البيانات المرجعية</h2><p>جدول يربط كل محطة رصد بالحالة الجغرافية والنسب التفصيلية</p></div>
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterTable('all',this)">الكل</button>
+    <button class="filter-btn" onclick="filterTable('up',this)">زيادة</button>
+    <button class="filter-btn" onclick="filterTable('stable',this)">ثبات</button>
+    <button class="filter-btn" onclick="filterTable('down',this)">تراجع مؤقت</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>السنة</th><th>المساحة (فدان)</th><th>المساحة (كم²)</th>
+          <th>الزراعة %</th><th>الصحراء %</th><th>العمران %</th><th>الحالة الجغرافية</th>
+        </tr>
+      </thead>
+      <tbody id="dataTable"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- INSIGHTS -->
+<section id="insights">
+  <div class="sec-head"><h2>Insights مستخلصة</h2><p>استنتاجات تحليلية تربط الخرائط بالبيانات</p></div>
+  <div class="insights-grid">
+    <div class="insight"><h3>الطاقة الشمسية عامل تمكين مكاني</h3><p>ارتفاع ساعات السطوع يجعل تشغيل آبار الري بالطاقة الشمسية مجدياً اقتصادياً، ويوسّع إمكان الزراعة في نطاقات كانت بعيدة عن مصادر الطاقة التقليدية.</p></div>
+    <div class="insight"><h3>2015 نقطة تحول لا نقطة انهيار</h3><p>التراجع المؤقت في المساحة الكلية لم يمنع تضاعف النسبة الزراعية؛ إعادة التوزيع داخل المجال كانت أكثر أهمية من الرقم الكلي.</p></div>
+    <div class="insight"><h3>التحسن النباتي يؤكد صدق التوسع</h3><p>تصاعد NDVI وSAVI من مستويات منخفضة إلى أعلى في 2025 يدعم أن النمو الزراعي يتجاوز الخرائط ويعكس أثراً حقيقياً على الغطاء النباتي.</p></div>
+    <div class="insight"><h3>الصحراء تتراجع لكن فرصها واسعة</h3><p>بقاء 80% في صورة صحراوية عام 2025 يعني أن التنمية المقبلة تحتاج انتقاءً أدق للمواقع بناءً على طبقات الملاءمة المكانية.</p></div>
+    <div class="insight"><h3>الخرائط التفسيرية تحدد الأولويات</h3><p>التربة والملوحة والكثبان هي مرشح قرار، لأنها تحدد أين تُوجَّه البنية الشمسية أولاً لتحقيق أكبر عائد زراعي مع أقل مخاطرة.</p></div>
+    <div class="insight"><h3>أفضل سيناريو هو الدمج المكاني</h3><p>دمج الطاقة الشمسية مع التحليل المكاني يوفر نموذجاً قابلاً للتكرار في مراكز صحراوية أخرى بالوادي الجديد مع تحديث دوري للخرائط.</p></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-card">
+    <h2>ما بعد الدراسة — خارطة طريق تنفيذية</h2>
+    <p>الخطوة التالية تحويل النتائج إلى قرار تنفيذي: أولويات تدخل، نطاقات صالحة للتوسع الفوري، مناطق تحتاج معالجة تربة أو ملوحة، ونطاقات تستوجب الحماية من زحف الكثبان. يمكن تطوير هذه الصفحة بإضافة بيانات GIS محلية حقيقية عبر GeoJSON أو WMS layers من الخوادم الحكومية المصرية.</p>
+    <p style="margin-top:.75rem;font-size:.8rem;color:var(--muted)">الخرائط التفاعلية: Leaflet.js | الأقمار الاصطناعية: Esri World Imagery | البيانات: جداول التقرير الأصلي</p>
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════
+const years=[2000,2005,2010,2015,2020,2025];
+const agriPct=[5,6,7,12,15,18];
+const desertPct=[94,93,91.5,86,83,80];
+const urbanPct=[1,1,1.5,2,2,2];
+const waterPct=[0,0,0,0,0.5,1];
+const feddans=[13474,16169,18864,32338,40422,48506];
+const km2=[56.7,68,79.4,136.1,170.1,204.1];
+const stages=['بداية رصد','زيادة تدريجية','ثبات','تراجع مؤقت','عودة نشاط','أقصى زيادة'];
+const stageBadge=['up','up','stable','down','up','up'];
+const months=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const sunKharga=[9.6,10,10.4,10.5,11.5,12.3,12.4,12.1,11.2,10.6,10.1,9.8];
+const sunGov=[9.2,9.7,10,10.5,11.3,12.1,12.2,12,11.1,10.5,9.8,9.3];
+const sunEgypt=[8.3,8.9,9.3,9.8,10.6,11.8,12.3,12.1,11.6,10.6,9.5,8.8];
+
+// ═══════════════════════════════════════════════════════
+// COUNTERS
+// ═══════════════════════════════════════════════════════
+function counter(id,target,decimals=0,suffix=''){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const dur=1400,start=performance.now();
+  function step(t){
+    const p=Math.min((t-start)/dur,1),ease=1-Math.pow(1-p,3);
+    const val=(target*ease);
+    el.textContent=(decimals?val.toFixed(decimals):Math.round(val)).toLocaleString('ar-EG')+suffix;
+    if(p<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+counter('c1',48506);counter('c2',18,0,'%');counter('c3',12.3,1);
+counter('kv1',35,0,'K');counter('kv2',13,0,'+');counter('kv3',14,0,'-');counter('kv4',12.3,1);
+
+// ═══════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════
+const C={grid:'rgba(255,255,255,.07)',tick:'#8b949e',primary:'#3fb950',gold:'#d29922',blue:'#58a6ff',desert:'#d29922',urban:'#58a6ff',water:'#56d364',coral:'#f85149'};
+
+new Chart(document.getElementById('agriChart'),{type:'line',data:{labels:years,datasets:[{label:'مساحة زراعية',data:feddans,borderColor:C.primary,backgroundColor:'rgba(63,185,80,.12)',fill:true,tension:.4,pointRadius:5,pointHoverRadius:8,pointBackgroundColor:C.primary}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:C.grid},ticks:{color:C.tick}},y:{grid:{color:C.grid},ticks:{color:C.tick,callback:v=>v.toLocaleString('en')}}}}});
+
+new Chart(document.getElementById('landUseChart'),{type:'bar',data:{labels:years,datasets:[{label:'زراعة',data:agriPct,backgroundColor:'rgba(63,185,80,.8)'},{label:'صحراء',data:desertPct,backgroundColor:'rgba(210,153,34,.8)'},{label:'عمران',data:urbanPct,backgroundColor:'rgba(88,166,255,.8)'},{label:'مياه',data:waterPct,backgroundColor:'rgba(86,211,100,.5)'}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{color:C.tick}},y:{stacked:true,max:100,grid:{color:C.grid},ticks:{color:C.tick,callback:v=>v+'%'}}},plugins:{legend:{labels:{color:C.tick,boxWidth:12,padding:12}}}}});
+
+new Chart(document.getElementById('sunChart'),{type:'line',data:{labels:months,datasets:[{label:'الخارجة',data:sunKharga,borderColor:C.gold,backgroundColor:'rgba(210,153,34,.1)',tension:.4,fill:true},{label:'المحافظة',data:sunGov,borderColor:'#c963c9',tension:.4},{label:'الجمهورية',data:sunEgypt,borderColor:C.blue,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{color:C.tick,maxRotation:45}},y:{grid:{color:C.grid},ticks:{color:C.tick}}},plugins:{legend:{labels:{color:C.tick,boxWidth:10,padding:12}}}}});
+
+new Chart(document.getElementById('donutChart'),{type:'doughnut',data:{labels:['صحراء 80%','زراعة 18%','عمران 2%'],datasets:[{data:[80,18,2],backgroundColor:[C.gold,C.primary,C.blue],borderColor:'#161b22',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:C.tick,padding:16,boxWidth:12}}}}});
+
+// Diff chart
+let diffChartObj=null;
+function buildDiffChart(iA,iB){
+  const d=[
+    {label:'زراعة',A:agriPct[iA],B:agriPct[iB],color:C.primary},
+    {label:'صحراء',A:desertPct[iA],B:desertPct[iB],color:C.gold},
+    {label:'عمران',A:urbanPct[iA],B:urbanPct[iB],color:C.blue},
+  ];
+  const diff=d.map(x=>+(x.A-x.B).toFixed(1));
+  const bgColors=diff.map(v=>v>0?'rgba(63,185,80,.75)':'rgba(248,81,73,.75)');
+  if(diffChartObj)diffChartObj.destroy();
+  diffChartObj=new Chart(document.getElementById('diffChart'),{type:'bar',data:{labels:d.map(x=>x.label+' ('+x.A+'% vs '+x.B+'%)'),datasets:[{label:'الفارق (نقطة مئوية)',data:diff,backgroundColor:bgColors}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:C.grid},ticks:{color:C.tick,callback:v=>(v>0?'+':'')+v+'%'}},y:{grid:{display:false},ticks:{color:C.tick}}}}});
+}
+buildDiffChart(5,0);
+
+// ═══════════════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════════════
+const tbody=document.getElementById('dataTable');
+const badgeMap={up:'badge-up',stable:'badge-stable',down:'badge-down'};
+const badgeLabel={up:'زيادة',stable:'ثبات',down:'تراجع مؤقت'};
+function renderTable(filter){
+  tbody.innerHTML='';
+  years.forEach((y,i)=>{
+    const s=stageBadge[i];
+    if(filter!=='all'&&s!==filter)return;
+    const tr=document.createElement('tr');tr.dataset.state=s;
+    tr.innerHTML=`<td><strong>${y}</strong></td><td style="font-family:var(--mono)">${feddans[i].toLocaleString('en')}</td><td style="font-family:var(--mono)">${km2[i]}</td><td style="color:var(--primary)">${agriPct[i]}%</td><td style="color:var(--gold)">${desertPct[i]}%</td><td style="color:var(--blue)">${urbanPct[i]}%</td><td><span class="badge ${badgeMap[s]}">${badgeLabel[s]}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+renderTable('all');
+function filterTable(f,btn){document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderTable(f);}
+
+// ═══════════════════════════════════════════════════════
+// LEAFLET MAP — MAIN
+// ═══════════════════════════════════════════════════════
+const center=[25.44,30.55];
+const mainMap=L.map('leaflet-map',{center,zoom:10,zoomControl:true,attributionControl:false});
+
+const tileLayers={
+  satellite:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}),
+  topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,subdomains:'abc'}),
+  osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,subdomains:'abc'})
+};
+tileLayers.satellite.addTo(mainMap);
+let activeLayer='satellite';
+
+function setLayer(name){
+  mainMap.removeLayer(tileLayers[activeLayer]);
+  tileLayers[name].addTo(mainMap);
+  activeLayer=name;
+  document.querySelectorAll('.layer-btn').forEach(b=>{
+    b.classList.toggle('active',b.getAttribute('onclick').includes("'"+name+"'"));
+  });
+}
+
+// Area polygon (approximate Kharga district boundary)
+const khargaBoundary=[
+  [25.9,30.55],[25.9,30.7],[25.75,30.75],[25.6,30.72],[25.5,30.68],
+  [25.4,30.65],[25.3,30.6],[25.2,30.55],[25.1,30.52],[25.0,30.48],
+  [24.95,30.45],[24.95,30.35],[25.0,30.3],[25.1,30.3],[25.2,30.38],
+  [25.3,30.4],[25.4,30.42],[25.5,30.45],[25.6,30.5],[25.75,30.52],[25.9,30.55]
+];
+L.polygon(khargaBoundary,{color:'#3fb950',weight:2,fillColor:'#3fb950',fillOpacity:.06,dashArray:'6 4'}).addTo(mainMap).bindPopup('<strong>حدود مركز الخارجة</strong><br/>إجمالي المساحة: 269,480 فدان');
+
+// Agricultural zones markers
+const agriZones=[
+  {lat:25.45,lng:30.55,name:'مدينة الخارجة',type:'agri',area:'أكبر تجمع زراعي',pct:'15%',solar:'مرتفع جداً'},
+  {lat:25.62,lng:30.58,name:'قرى الشركة',type:'agri',area:'توسع ما بعد 2010',pct:'12%',solar:'مرتفع'},
+  {lat:25.72,lng:30.6,name:'المنيرة',type:'agri',area:'نمو متسارع',pct:'8%',solar:'مرتفع جداً'},
+  {lat:25.82,lng:30.62,name:'النقب',type:'agri',area:'أعلى إشعاع شمسي',pct:'6%',solar:'مرتفع جداً'},
+  {lat:25.3,lng:30.5,name:'جناح',type:'agri',area:'زراعة نخيل وحقلية',pct:'5%',solar:'متوسط'},
+  {lat:25.18,lng:30.47,name:'بولاق',type:'agri',area:'جنوب المركز',pct:'4%',solar:'منخفض'},
+  {lat:25.08,lng:30.44,name:'صنعاء',type:'agri',area:'أقصى الجنوب',pct:'3%',solar:'منخفض'},
+  {lat:25.0,lng:30.42,name:'فلسطين',type:'agri',area:'نمو حديث',pct:'3%',solar:'منخفض'},
+];
+const solarZones=[
+  {lat:25.83,lng:30.65,name:'وحدات شمسية – النقب',type:'solar',units:180,power:'4,800 كو'},
+  {lat:25.7,lng:30.62,name:'وحدات شمسية – المنيرة',type:'solar',units:140,power:'4,400 كو'},
+  {lat:25.48,lng:30.58,name:'وحدات شمسية – مدينة الخارجة',type:'solar',units:200,power:'4,800 كو'},
+  {lat:25.22,lng:30.5,name:'وحدات شمسية – شرق بولاق',type:'solar',units:90,power:'2,200 كو'},
+];
+const waterZones=[
+  {lat:25.45,lng:30.53,name:'آبار الخارجة',type:'water',depth:'180م',flow:'200 م³/يوم'},
+  {lat:25.62,lng:30.56,name:'آبار المنيرة',type:'water',depth:'160م',flow:'160 م³/يوم'},
+  {lat:25.18,lng:30.46,name:'آبار بولاق',type:'water',depth:'120م',flow:'80 م³/يوم'},
+];
+
+const icons={
+  agri:L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:#3fb950;border:2px solid #fff;box-shadow:0 0 6px rgba(63,185,80,.6)"></div>',className:'',iconAnchor:[7,7]}),
+  solar:L.divIcon({html:'<div style="width:14px;height:14px;background:#f85149;transform:rotate(45deg);border:2px solid #fff;box-shadow:0 0 6px rgba(248,81,73,.6)"></div>',className:'',iconAnchor:[7,7]}),
+  water:L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:#58a6ff;border:2px solid #fff;box-shadow:0 0 6px rgba(88,166,255,.6)"></div>',className:'',iconAnchor:[7,7]})
+};
+
+let allMarkers=[];
+function addMarkers(){
+  allMarkers.forEach(m=>mainMap.removeLayer(m));allMarkers=[];
+  const use=document.getElementById('useFilter').value;
+  const area=document.getElementById('areaFilter').value;
+  const rad=parseInt(document.getElementById('radFilter').value);
+
+  function inArea(lat){
+    if(area==='all')return true;
+    if(area==='north')return lat>=25.6;
+    if(area==='central')return lat>=25.35&&lat<25.6;
+    if(area==='south')return lat<25.35;
+    return true;
+  }
+  function radOk(radLabel){
+    const map={منخفض:0,متوسط:1,'مرتفع':2,'مرتفع جداً':2};
+    return (map[radLabel]??1)>=rad;
+  }
+
+  if(use==='all'||use==='agri'){
+    agriZones.forEach(z=>{
+      if(!inArea(z.lat)||!radOk(z.solar))return;
+      const m=L.marker([z.lat,z.lng],{icon:icons.agri})
+        .bindPopup(`<strong>${z.name}</strong><br/>النمط: ${z.area}<br/>الحصة: ${z.pct}<br/>الإشعاع: ${z.solar}`);
+      m.addTo(mainMap);allMarkers.push(m);
+    });
+  }
+  if(use==='all'||use==='solar'){
+    solarZones.forEach(z=>{
+      if(!inArea(z.lat))return;
+      const m=L.marker([z.lat,z.lng],{icon:icons.solar})
+        .bindPopup(`<strong>${z.name}</strong><br/>الوحدات: ${z.units}<br/>القدرة: ${z.power}`);
+      m.addTo(mainMap);allMarkers.push(m);
+    });
+  }
+  if(use==='all'||use==='water'){
+    waterZones.forEach(z=>{
+      if(!inArea(z.lat))return;
+      const m=L.marker([z.lat,z.lng],{icon:icons.water})
+        .bindPopup(`<strong>${z.name}</strong><br/>العمق: ${z.depth}<br/>الإنتاج: ${z.flow}`);
+      m.addTo(mainMap);allMarkers.push(m);
+    });
+  }
+}
+addMarkers();
+
+function applyFilters(){addMarkers();}
+function resetFilters(){
+  document.getElementById('useFilter').value='all';
+  document.getElementById('radFilter').value=1;
+  document.getElementById('areaFilter').value='all';
+  updateRadVal(1);addMarkers();
+}
+function updateRadVal(v){
+  const labels=['منخفض','متوسط','مرتفع جداً'];
+  document.getElementById('radVal').textContent=labels[v];
+}
+
+// ═══════════════════════════════════════════════════════
+// YEAR SLIDER
+// ═══════════════════════════════════════════════════════
+function updateYear(i){
+  const idx=parseInt(i);
+  document.getElementById('yearDisplay').textContent=years[idx];
+  document.getElementById('ys-agri').textContent=agriPct[idx]+'%';
+  document.getElementById('ys-desert').textContent=desertPct[idx]+'%';
+  document.getElementById('ys-urban').textContent=urbanPct[idx]+'%';
+  document.getElementById('ys-area').textContent=feddans[idx].toLocaleString('en');
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPARISON MAPS
+// ═══════════════════════════════════════════════════════
+let mapAObj=null,mapBObj=null;
+function initCompareMaps(){
+  if(!mapAObj){
+    mapAObj=L.map('mapA',{center,zoom:9,zoomControl:false,attributionControl:false});
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(mapAObj);
+    L.polygon(khargaBoundary,{color:'#3fb950',weight:2,fillColor:'#3fb950',fillOpacity:.08}).addTo(mapAObj);
+  }
+  if(!mapBObj){
+    mapBObj=L.map('mapB',{center,zoom:9,zoomControl:false,attributionControl:false});
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(mapBObj);
+    L.polygon(khargaBoundary,{color:'#d29922',weight:2,fillColor:'#d29922',fillOpacity:.08}).addTo(mapBObj);
+  }
+}
+
+let compareMarkersA=[],compareMarkersB=[];
+function updateCompare(){
+  const iA=parseInt(document.getElementById('yearA').value);
+  const iB=parseInt(document.getElementById('yearB').value);
+  initCompareMaps();
+  compareMarkersA.forEach(m=>mapAObj.removeLayer(m));
+  compareMarkersB.forEach(m=>mapBObj.removeLayer(m));
+  compareMarkersA=[];compareMarkersB=[];
+
+  const scaleA=agriPct[iA]/agriPct[5];
+  const scaleB=agriPct[iB]/agriPct[5];
+
+  agriZones.slice(0,Math.ceil(agriZones.length*scaleA)).forEach(z=>{
+    const m=L.circleMarker([z.lat,z.lng],{radius:6,color:'#3fb950',fillColor:'#3fb950',fillOpacity:.7,weight:1.5}).bindPopup(`<strong>${z.name}</strong><br/>${years[iA]}`);
+    m.addTo(mapAObj);compareMarkersA.push(m);
+  });
+  agriZones.slice(0,Math.ceil(agriZones.length*scaleB)).forEach(z=>{
+    const m=L.circleMarker([z.lat,z.lng],{radius:6,color:'#d29922',fillColor:'#d29922',fillOpacity:.7,weight:1.5}).bindPopup(`<strong>${z.name}</strong><br/>${years[iB]}`);
+    m.addTo(mapBObj);compareMarkersB.push(m);
+  });
+
+  const yA=document.querySelector('#yearA').options[document.querySelector('#yearA').selectedIndex].text;
+  const yB=document.querySelector('#yearB').options[document.querySelector('#yearB').selectedIndex].text;
+  document.querySelector('#mapA .compare-header label').textContent='السنة الأولى: '+years[iA]+'  |  زراعة '+agriPct[iA]+'%';
+  buildDiffChart(iA,iB);
+}
+
+// Observe intersection to init compare maps lazily
+const obs=new IntersectionObserver(entries=>{
+  if(entries[0].isIntersecting){initCompareMaps();obs.disconnect();}
+},{threshold:.1});
+obs.observe(document.getElementById('comparison'));
+
+// Nav active state
+const sections=document.querySelectorAll('section[id],div[id]');
+window.addEventListener('scroll',()=>{
+  let found='';
+  sections.forEach(s=>{const r=s.getBoundingClientRect();if(r.top<=120&&r.bottom>0)found=s.id;});
+  document.querySelectorAll('.nav-links a').forEach(a=>{a.classList.toggle('active',a.getAttribute('href')==='#'+found);});
+},{passive:true});
+</script>
+</body>
+</html>
